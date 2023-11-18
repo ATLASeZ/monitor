@@ -17,12 +17,6 @@ void SendDataToChannel(MutexData& channel, int data)
     /* Блокируем мьютекс */
     std::unique_lock<std::mutex> block(channel.m_mutex);
 
-    /* Ждём обработки данных */
-    channel.m_notification.wait(block, [&channel]
-        { 
-            return !channel.m_isReady; 
-        });
-
     /* Записываем данные, готовые к обработке */
     channel.m_data = data;
     /* Устанавливаем флаг, указывающий, что данные готовы для обработки */
@@ -30,6 +24,12 @@ void SendDataToChannel(MutexData& channel, int data)
 
     /* Отправляем сообщение одному из потоков, ожидающих данные для обработки */
     channel.m_notification.notify_one();
+
+    /* Ждём обработки данных */
+    channel.m_notification.wait(block, [&channel]
+        {
+            return !channel.m_isReady;
+        });
 }
 
 /* Функция отправки данных в канал (поток-поставщик данных) */
@@ -54,8 +54,8 @@ int ProcessDataFromChannel(MutexData& channel)
     std::unique_lock<std::mutex> block(channel.m_mutex);
 
     /* Ждём обработки данных */
-    channel.m_notification.wait(block, [&channel] 
-        { 
+    channel.m_notification.wait(block, [&channel]
+        {
             return channel.m_isReady;
 
         });
@@ -78,7 +78,7 @@ void DataProcessThread(MutexData& channel)
     /* Переменная для сохранения полученного из канала значения */
     int data;
 
-    do 
+    do
     {
         /* Вызываем функцию для извлечения данных из канала и их последующей обработки */
         data = ProcessDataFromChannel(channel);
